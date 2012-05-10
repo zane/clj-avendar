@@ -1,9 +1,10 @@
 (ns clj-avendar.test.core
+  (:require [net.cgrand.parsley :as parsley])
   (:use [clj-avendar.core])
-  (:use [midje.sweet]))
+  (:use [midje.sweet])
+  (:use [clojure.pprint]))
 
-(fact "Area Tests"
-  "#AREADATA
+(fact "#AREADATA
 Name Var Bandor~
 Builders Jolinn        Iandir      Neongrey~
 VNUMs 11100 11299
@@ -18,22 +19,19 @@ Herbs 0
 Weather 2 2 2 1 0
 End" => (parses-to? :area))
 
-(fact "Basic Tests"
-  "Test~"         => (parses-to? :string)
-  "Foo Bar\nBaz~" => (parses-to? :string)
+(fact "Test~"         => (parses-to? :string)
+      "Foo Bar\nBaz~" => (parses-to? :string)
+      "a~"            => (parses-to? :string)
   
-  "0"             => (parses-to? :integer)
-  "1234"          => (parses-to? :integer)
+      "0"    => (parses-to? :integer)
+      "1234" => (parses-to? :integer)
   
-  "1"             => (parses-to? :nzinteger)
-  "0"             => (complement (parses-to? :nzinteger))
-  ""              => (complement (parses-to? :nzinteger))
+      "1" => (parses-to? :nzinteger)
+      "0" => (complement (parses-to? :nzinteger))
+      ""  => (complement (parses-to? :nzinteger))
   
-  "  \n \t"       => (parses-to? :whitespace))
+      "  \n \t" => (parses-to? :whitespace))
 
-(fact "Mobiles Tests"
-  "#0"           => (parses-to? :mobile-terminator)
-  "#123"         => (complement (parses-to? :mobile-terminator))
-  "#MOBILES\n#0" => (parses-to? :mobiles)
-  ""
-  )
+(fact "#MOBILES\n#0" => (parses-to? :mobiles)
+      "V1 2" => (parses-to? :v-prefix)
+      "V1 2" => (parses-to? :v-prefix))

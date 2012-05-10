@@ -20,33 +20,28 @@
                         :areainfo-decl
                         :herbs-decl
                         :weather-decl}
-               :name-decl ["Name" :string]
+               :name-decl     ["Name" :string]
                :builders-decl ["Builders" :string]
-               :vnums-decl ["VNUMs" :integer :integer]
-               :credits-decl ["Credits" :string]
-               :danger-decl ["Danger" :integer]
+               :vnums-decl    ["VNUMs" :integer :integer]
+               :credits-decl  ["Credits" :string]
+               :danger-decl   ["Danger" :integer]
                :security-decl ["Security" :integer]
                :areainfo-decl ["Areainfo" :integer]
-               :herbs-decl ["Herbs" :integer]
-               :weather-decl ["Weather" :integer :integer :integer :integer :integer]
+               :herbs-decl    ["Herbs" :integer]
+               :weather-decl  ["Weather" :integer :integer :integer :integer :integer]
 
-               :mobiles ["#MOBILES" :mobile* :mobile-terminator]
-               :mobile-terminator "#0"
-               :mobile [:mobile-prefix
-                        :string
-                        :string
-                        :string
-                        :string
-                        :string]
-               :mobile-prefix #{:v-mobile :#-mobile}
-               :v-mobile (parsley/unspaced "V" :nzinteger :nzinteger "|")
-               :#-mobile (parsley/unspaced "=#" :nzinteger "|")
+               :mobiles ["#MOBILES" :mobile* "#0"]
+               :mobile [:mobile-prefix :string :string :string :string :string  "|"]
+               :mobile-prefix #{:v-prefix :#-prefix}
+               :v-prefix (parsley/unspaced "V" :nzinteger :whitespace :nzinteger)
+               :#-prefix #"#[1-9][0-9]*"
                
                :string [:string-body :string-terminator ]
-               :string-body #"[^\s][^~]+"
+               :string-body #"[^\s][^~]*"
                :string-terminator "~"
                :integer #"[0-9]+"
-               :nzinteger #"[123456789][0-9]*"
+               :nzinteger #"[1-9][0-9]*"
+               
                :whitespace #"[ \t\n]+")]
     (parse str)))
 
