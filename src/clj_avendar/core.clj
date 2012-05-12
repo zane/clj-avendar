@@ -1,57 +1,47 @@
 (ns clj-avendar.core
-  (:require [net.cgrand.parsley :as parsley]))
+  (:refer-clojure :exclude [char])
+  (:use [the.parsatron]))
 
-(defn parse
-  [tag str]
-  (let [parse (parsley/parser
-               {:main tag
-                :space :whitespace?
-                :make-node (fn [tag content] {:tag tag :content content})
-                ;; :make-unexpected (fn [content] (throw (Exception. content)))
-                }
+(defrecord Area [name])
 
-               :area ["#AREADATA" :decl* "End"]
-               :decl- #{:name-decl
-                        :builders-decl
-                        :vnums-decl
-                        :credits-decl
-                        :danger-decl
-                        :security-decl
-                        :areainfo-decl
-                        :herbs-decl
-                        :weather-decl}
-               :name-decl     ["Name" :string]
-               :builders-decl ["Builders" :string]
-               :vnums-decl    ["VNUMs" :integer :integer]
-               :credits-decl  ["Credits" :string]
-               :danger-decl   ["Danger" :integer]
-               :security-decl ["Security" :integer]
-               :areainfo-decl ["Areainfo" :integer]
-               :herbs-decl    ["Herbs" :integer]
-               :weather-decl  ["Weather" :integer :integer :integer :integer :integer]
+(defn string
+  [string]
+  (reduce nxt
+          (map char (seq string))))
 
-               :mobiles ["#MOBILES" :mobile* "#0"]
-               :mobile [:mobile-prefix :string :string :string :string :string  "|"]
-               :mobile-prefix #{:v-prefix :#-prefix}
-               :v-prefix (parsley/unspaced "V" :nzinteger :whitespace :nzinteger)
-               :#-prefix #"#[1-9][0-9]*"
-               
-               :string [:string-body :string-terminator ]
-               :string-body #"[^\s][^~]*"
-               :string-terminator "~"
-               :integer #"[0-9]+"
-               :nzinteger #"[1-9][0-9]*"
-               
-               :whitespace #"[ \t\n]+")]
-    (parse str)))
+(defn whitespace
+  "Consume a whitespace character"
+  []
+  (token #(Character/isWhitespace %)))
 
-(defn parses-to?
-  [tag]
-  (fn [x]
-    (let [y (parse tag x)]
-      (and (= (:tag y)
-              :net.cgrand.parsley/root)
-           (= (count (:content y))
-              1)
-           (= (:tag ((:content y) 0))
-              tag)))))
+(defparser nonzero-digit []
+  (token #(re-matches #"[1-9]" (str %))))
+
+(defparser not-tilde []
+  (token #(not (= \~ %))))
+
+(defparser integer []
+  (let->> [digits (many1 (digit))]
+    (always (read-string (apply str digits)))))
+
+(defparser nonzero-integer []
+  (let->> [nonzero-digit (nonzero-digit)
+           digits (many (digit))]
+    (always (read-string (apply str (cons nonzero-digit digits))))))
+
+(defparser tilde-string []
+  (let->> [chars (>> (many (whitespace))
+                     (many1 (not-tilde)))
+           _ (char \~)]
+    (always (apply str chars))))
+
+(defparser area-name-decl []
+  (let->> [name (>> (string "Name") (tilde-string))]
+    (always {:name name})))
+
+(defparser area []
+  (let->> [opts (between (string "#AREADATA")           
+                         (string "End")
+                         (many (choice (area-name-decl))))]
+    (always (let [merged-opts (apply merge opts)]
+              (Area. (:name merged-opts))))))

@@ -1,37 +1,45 @@
 (ns clj-avendar.test.core
-  (:require [net.cgrand.parsley :as parsley])
-  (:use [clj-avendar.core])
-  (:use [midje.sweet])
-  (:use [clojure.pprint]))
+  (:refer-clojure :exclude [char string])
+  (:use [the.parsatron]
+        [clj-avendar.core]
+        [clojure.test]))
 
-(fact "#AREADATA
-Name Var Bandor~
-Builders Jolinn        Iandir      Neongrey~
-VNUMs 11100 11299
-VNUMs 22900 22999
-VNUMs 22850 22899
-VNUMs 3400 3699
-Credits [ ALL ] Staff     Var Bandor~
-Danger 1
-Security 1
-Areainfo 59
-Herbs 0
-Weather 2 2 2 1 0
-End" => (parses-to? :area))
+(deftest test-whitespace
+  (are [x] (not (nil? (run (whitespace) x)))
+       " "
+       "\t"
+       "\n"
+       "\r"))
 
-(fact "Test~"         => (parses-to? :string)
-      "Foo Bar\nBaz~" => (parses-to? :string)
-      "a~"            => (parses-to? :string)
-  
-      "0"    => (parses-to? :integer)
-      "1234" => (parses-to? :integer)
-  
-      "1" => (parses-to? :nzinteger)
-      "0" => (complement (parses-to? :nzinteger))
-      ""  => (complement (parses-to? :nzinteger))
-  
-      "  \n \t" => (parses-to? :whitespace))
+(deftest test-integer
+  (are [x y] (= (run (integer) y) x)
+       123 "123"
+       0 "0"))
 
-(fact "#MOBILES\n#0" => (parses-to? :mobiles)
-      "V1 2" => (parses-to? :v-prefix)
-      "V1 2" => (parses-to? :v-prefix))
+(deftest test-integer
+  (are [x y] (= (run (nonzero-integer) y) x)
+       123 "123"
+       1 "1")
+  (is (thrown? RuntimeException
+               (run (nonzero-integer "0")))))
+
+(deftest test-tilde-string
+  (are [x y] (= (run (tilde-string) y) x)
+       "hello" "   hello~"
+       "hello" "\thello~"
+       "hello" "\nhello~"))
+
+(deftest test-string
+  (are [x] (run (string x) x)
+       "hello"
+       "foo"))
+
+(deftest test-area-name-decl
+  (are [x y] (= (:name (run (area-name-decl) x))
+                y)
+       "Name Var Bandor~" "Var Bandor"))
+
+(deftest test-area
+  (let [area (run (area) "#AREADATAName Var Bandor~End")]
+    (is (= (:name area)
+           "Var Bandor"))))
