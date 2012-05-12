@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [char])
   (:use [the.parsatron]))
 
-(defrecord Area [name])
+(defrecord Area [name builders credits vnums danger])
+(defrecord NumberRange [start end])
 
 (defn string
   [string]
@@ -21,7 +22,8 @@
   (token #(not (= \~ %))))
 
 (defparser integer []
-  (let->> [digits (many1 (digit))]
+  (let->> [_ (many (whitespace))
+           digits (many1 (digit))]
     (always (read-string (apply str digits)))))
 
 (defparser nonzero-integer []
@@ -36,12 +38,44 @@
     (always (apply str chars))))
 
 (defparser area-name-decl []
-  (let->> [name (>> (string "Name") (tilde-string))]
-    (always {:name name})))
+  (let->> [name (>> (string "Name")
+                    (tilde-string))]
+    (always {:names [name]})))
+
+(defparser area-builders-decl []
+  (let->> [builders (>> (string "Builders")
+                        (tilde-string))]
+    (always {:builders [builders]})))
+
+(defparser area-credits-decl []
+  (let->> [credits (>> (string "Credits")
+                       (tilde-string))]
+    (always {:credits [credits]})))
+
+(defparser area-vnum-decl []
+  (let->> [_ (many (whitespace))
+           _ (string "VNUMs")
+           start (integer)
+           end (integer)]
+    (always {:vnums [(NumberRange. start end)]})))
 
 (defparser area []
   (let->> [opts (between (string "#AREADATA")           
                          (string "End")
-                         (many (choice (area-name-decl))))]
-    (always (let [merged-opts (apply merge opts)]
-              (Area. (:name merged-opts))))))
+                         (many (choice (let->> [_ (many1 (whitespace))]
+                                         (always {})) 
+                                       (area-name-decl)
+                                       (area-builders-decl)
+                                       (area-credits-decl)
+                                       (area-vnum-decl)
+                                       (let->> [_ (string "Danger")
+                                                danger (integer)]
+                                         (always {:danger [danger]})))))]
+    (always (let [merged (apply (partial merge-with into) opts)]
+              (->Area (first (:names merged))
+                      (first (:builders merged))
+                      (first (:credits merged))
+                      (:vnums merged)
+                      (first (:danger merged)))))))
+
+              
