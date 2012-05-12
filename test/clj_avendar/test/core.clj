@@ -106,3 +106,18 @@ End")]
                                    :base-wind-mag 2,
                                    :base-wind-dir 1,
                                    :geography 0})))
+
+(deftest test-ordered
+  (are [x y z] (= (run x y) z
+                  [\a \b \c])
+       (ordered (char \a) (char \b) (char \c)) "abc" [\a \b \c]))
+
+(deftest test-flag-convert
+  (are [chr num] (= (flag-convert chr)
+                    num)
+       \A 1
+       \B 2
+       \C 4
+       \a 67108864
+       \b 134217728
+       \c 268435456))
