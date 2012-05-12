@@ -81,7 +81,7 @@
     (always (apply str chars))))
 
 (defparser area-vnum-decl []
-  (let->> [vals (>> (string "VNUMs") (times 2 (integer)))]  
+  (let->> [vals (>> (string "VNUMs") (times 2 (integer)))]
     (always (apply ->NumberRange vals))))
 
 (defparser area-weather-decl []
@@ -91,10 +91,10 @@
 (defparser area []
   (let->> [opts
            (between
-            (string "#AREADATA")           
+            (string "#AREADATA")
             (string "End")
             (many (choice (>> (many1 (whitespace)) (always {}))
-                                       
+
                           (named :name       (>> (string "Name")     (tilde-string)))
                           (named :builders   (>> (string "Builders") (tilde-string)))
                           (named :credits    (>> (string "Credits")  (tilde-string)))
@@ -103,7 +103,7 @@
                           (named :info-flags (>> (string "Areainfo") (integer)))
                           (named :herbs      (>> (string "Herbs")    (integer)))
 
-                          (named :weather (area-weather-decl))                                       
+                          (named :weather (area-weather-decl))
                           (named :vnums (area-vnum-decl)))))]
     (always (map->Area (apply list-merge opts)))))
 
@@ -127,6 +127,28 @@
                     (tilde-string)
                     (tilde-string))]
     (always (apply ->Mobile opts))))
+
+(defparser x []
+  (choice (>> (char \x) (lookahead (char \,)) (char \,) (x))
+          (char \x)))
+
+(defparser maybe [alternative parser]
+  (choice parser
+          (always alternative)))
+
+(defparser flag []
+  (let->> [letters (many (letter))
+           digits (many (digit))
+           rest (many (>> (char \|)
+                          (flag)))]
+    (always (+ (reduce (fn [acc digit]
+                         (+ (* 10 acc)
+                            digit))
+                       (reduce + (map flag-convert letters))
+                       (map (fn [digit]
+                              (Integer/parseInt (str digit)))
+                            digits)) 
+               (reduce + rest)))))
 
 (defn flag-convert
   [chr]
