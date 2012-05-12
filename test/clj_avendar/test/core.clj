@@ -35,18 +35,6 @@
        "hello"
        "foo"))
 
-(deftest test-area-name-decl
-  (are [x y] (= (:name (run (area-name-decl) x))
-                y)
-       "Name Var Bandor~"
-       "Var Bandor"))
-
-(deftest test-area-builders-decl
-  (are [x y] (= (:builders (run (area-builders-decl) x))
-                y)
-       "Builders Jolinn        Iandir      Neongrey~"
-       "Jolinn        Iandir      Neongrey"))
-
 (deftest test-vnum-decl
   (are [x y] (= (run (area-vnum-decl) x)
                 y)
@@ -121,3 +109,17 @@ End")]
        \a 67108864
        \b 134217728
        \c 268435456))
+
+(deftest test-maybe
+  (are [expected parser input] (= expected (run parser input))
+       \a (maybe \b (char \a)) "a"
+       \b (maybe \b (char \a)) "x"))
+
+(deftest test-flag
+  (are [expected input] (= expected (run (flag) input))
+       1 "1"
+       10 "10"
+       6 "1|2|3"
+       62 "10|21|31"
+       10 "A0"
+       671088640 "a0"))

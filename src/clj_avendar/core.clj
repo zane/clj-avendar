@@ -1,7 +1,8 @@
 (ns clj-avendar.core
   (:refer-clojure :exclude [char])
   (:require [clojure.core :as core])
-  (:use [the.parsatron]))
+  (:use [the.parsatron])
+  (:use [clojure.math.numeric-tower :only (expt)]))
 
 (defrecord Area
     [name
@@ -128,19 +129,22 @@
                     (tilde-string))]
     (always (apply ->Mobile opts))))
 
-(defparser x []
-  (choice (>> (char \x) (lookahead (char \,)) (char \,) (x))
-          (char \x)))
-
 (defparser maybe [alternative parser]
   (choice parser
           (always alternative)))
 
+(defn flag-convert
+  [chr]
+  (if (and (<= (int \A) (int chr))
+           (<= (int chr) (int \Z)))
+    (expt 2 (- (int chr) (int \A)))
+    (expt 2 (+ 26 (- (int chr) (int \a))))))
+
 (defparser flag []
   (let->> [letters (many (letter))
-           digits (many (digit))
-           rest (many (>> (char \|)
-                          (flag)))]
+           digits  (many (digit))
+           rest    (maybe 0 (>> (char \|)
+                                (flag)))]
     (always (+ (reduce (fn [acc digit]
                          (+ (* 10 acc)
                             digit))
@@ -148,21 +152,5 @@
                        (map (fn [digit]
                               (Integer/parseInt (str digit)))
                             digits)) 
-               (reduce + rest)))))
+               rest))))
 
-(defn flag-convert
-  [chr]
-  (if (and (<= (int \A) (int chr))
-           (<= (int chr) (int \Z)))
-    (loop [chr chr
-           acc 1]
-      (if (<= (int chr) (int \A))
-        acc
-        (recur (core/char (dec (int chr)))
-               (* acc 2))))
-    (loop [chr chr
-           acc 67108864]
-      (if (<= (int chr) (int \a))
-        acc
-        (recur (core/char (dec (int chr)))
-               (* acc 2))))))
