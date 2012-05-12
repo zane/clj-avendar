@@ -136,3 +136,18 @@ End")]
        0  "0"
        -1 "-1"))
 
+(deftest test-dice
+  (is (= #clj_avendar.core.Dice{:number 1, :type 6, :bonus 0}
+         (run (dice) "1d6+0")))
+  (is (= #clj_avendar.core.Dice{:number 0, :type 4, :bonus 1}
+         (run (dice) "0d4+1")))
+  (is (= #clj_avendar.core.Dice{:number 10, :type 6, :bonus 20}
+         (run (dice) "10d6+20"))))
+
+(deftest test-armor-class
+  (is (= #clj_avendar.core.ArmorClass{:pierce 10,
+                                      :slash  20,
+                                      :bash   30,
+                                      :exotic 40}
+         (run (armor-class) "1 2 3 4"))))
+

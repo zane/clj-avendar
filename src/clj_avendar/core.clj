@@ -26,7 +26,6 @@
      base-wind-dir
      geography])
 
-
 (defn list-merge
   [& lst]
   (apply (partial merge-with
@@ -148,6 +147,30 @@
           (>> (char \E) (always :evil))
           (>> (char \R) (always :random))))
 
+(defrecord Dice
+    [number
+     type
+     bonus])
+
+(defparser dice []
+  (let->> [number (integer)
+           _      (char \d)
+           type   (integer)
+           _      (char \+)
+           bonus  (integer)]
+    (always (->Dice number type bonus))))
+
+(defrecord ArmorClass
+    [pierce
+     slash
+     bash
+     exotic])
+
+(defparser armor-class []
+  (let->> [vals (times 4 (integer))]
+    (always (apply ->ArmorClass (map #(* 10 %)
+                                     vals)))))
+
 (defrecord Mobile
     [version
      vnum
@@ -162,7 +185,13 @@
      alignment
      group
      level
-     hitroll])
+     hitroll
+     hit
+     mana
+     damage
+     dam-type
+     dam-verb
+     armor-class])
 
 (defparser mobile []
   (let->> [opts
@@ -180,5 +209,11 @@
                     (alignment)
                     (integer)
                     (integer)
-                    (integer))]
+                    (integer)
+                    (dice)
+                    (dice)
+                    (dice)
+                    (tilde-string)
+                    (tilde-string)
+                    (armor-class))]
     (always (apply ->Mobile opts))))
