@@ -79,6 +79,11 @@
            digits (many (digit))]
     (always (read-string (apply str (cons nonzero-digit digits))))))
 
+(defparser word []
+  (let->> [chars (>> (many (whitespace))
+                     (many1 (letter)))]
+    (always (apply str chars))))
+
 (defparser tilde-string []
   (let->> [chars (>> (many (whitespace))
                      (many1 (not-tilde)))
@@ -191,7 +196,21 @@
      damage
      dam-type
      dam-verb
-     armor-class])
+     armor-class
+     off-flags
+     imm-flags
+     resists
+     assist-vnums
+     start-pos
+     default-pos
+     sex
+     wealth
+     faction
+     form
+     parts
+     languages
+     size
+     material])
 
 (defparser mobile []
   (let->> [opts
@@ -215,5 +234,21 @@
                     (dice)
                     (tilde-string)
                     (tilde-string)
-                    (armor-class))]
+                    (armor-class)
+                    (flag)
+                    (flag)
+                    (let->> [count (integer)]
+                      (times count (integer)))
+                    (let->> [count (integer)]
+                      (times count (integer)))
+                    (tilde-string)
+                    (tilde-string)
+                    (tilde-string)
+                    (integer)
+                    (integer)
+                    (flag)
+                    (flag)
+                    (flag)
+                    (word)
+                    (word))]
     (always (apply ->Mobile opts))))

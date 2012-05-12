@@ -151,3 +151,9 @@ End")]
                                       :exotic 40}
          (run (armor-class) "1 2 3 4"))))
 
+(deftest test-word
+  (are [expected input] (= expected (run (word) input))
+       "jolinn" "jolinn"
+       "Jolinn" "Jolinn"
+       "JOLINN" "JOLINN"
+       "JOLINN" "   JOLINN"))
