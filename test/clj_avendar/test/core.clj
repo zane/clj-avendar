@@ -50,12 +50,12 @@
 (deftest test-vnum-decl
   (are [x y] (= (run (area-vnum-decl) x)
                 y)
-       "VNUMs 1 10" {:vnums (->NumberRange 1 10)}
-       "\nVNUMs   1    10" {:vnums (->NumberRange 1 10)}))
+       "VNUMs 1 10" (->NumberRange 1 10)
+       "VNUMs   1    10" (->NumberRange 1 10)))
 
 
 (deftest test-area
-    (let [area (run (area) "#AREADATA
+  (let [area (run (area) "#AREADATA
 Name Var Bandor~
 Builders Jolinn        Iandir      Neongrey~
 Credits [ ALL ] Staff     Var Bandor~
@@ -67,18 +67,26 @@ Danger 1
 Security 1
 Areainfo 59
 Herbs 0
+Weather 2 2 2 1 0
 End")]
-      (is (= (:name area) "Var Bandor"))
-      (is (= (:builders area) "Jolinn        Iandir      Neongrey"))
-      (is (= (:credits "Credits [ ALL ] Staff     Var Bandor")))
-      (is (= (:vnums area) [#clj_avendar.core.NumberRange{:start 11100, :end 11299}
-                            #clj_avendar.core.NumberRange{:start 22900, :end 22999}
-                            #clj_avendar.core.NumberRange{:start 22850, :end 22899}
-                            #clj_avendar.core.NumberRange{:start 3400, :end 3699}]))
-      (is (= (:danger area) 1))
-      (is (= (:security area) 1))
-      (is (= (:info-flags area) 59))
-      (is (= (:herbs area) 0))))
+    (is (= (:name area) "Var Bandor"))
+    (is (= (:builders area) "Jolinn        Iandir      Neongrey"))
+    (is (= (:credits "Credits [ ALL ] Staff     Var Bandor")))
+    (is (= (:vnums area)
+           [#clj_avendar.core.NumberRange{:start 11100, :end 11299}
+            #clj_avendar.core.NumberRange{:start 22900, :end 22999}
+            #clj_avendar.core.NumberRange{:start 22850, :end 22899}
+            #clj_avendar.core.NumberRange{:start 3400, :end 3699}]))
+    (is (= (:danger area) 1))
+    (is (= (:security area) 1))
+    (is (= (:info-flags area) 59))
+    (is (= (:herbs area) 0))
+    (is (= (:weather area)
+           #clj_avendar.core.Weather{:base-precip 2,
+                                     :base-temp 2,
+                                     :base-wind-mag 2,
+                                     :base-wind-dir 1,
+                                     :geography 0}))))
 
 (deftest test-list-merge
   (is (= (list-merge {:a 1 :b 2}

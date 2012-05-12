@@ -27,10 +27,11 @@
 
 (defn list-merge
   [& lst]
-  (apply (partial merge-with (fn [x y]
-                               (if (vector? x)
-                                 (conj x y)
-                                 [x y])))
+  (apply (partial merge-with
+                  (fn [x y]
+                    (if (vector? x)
+                      (conj x y)
+                      [x y])))
          lst))
 
 (defparser named
@@ -40,8 +41,7 @@
 
 (defn string
   [string]
-  (reduce nxt
-          (map char (seq string))))
+  (reduce nxt (map char (seq string))))
 
 (defn whitespace
   "Consume a whitespace character"
@@ -71,24 +71,12 @@
     (always (apply str chars))))
 
 (defparser area-vnum-decl []
-  (let->> [_ (many (whitespace))
-           _ (string "VNUMs")
-           start (integer)
-           end (integer)]
-    (always {:vnums (NumberRange. start end)})))
+  (let->> [vals (>> (string "VNUMs") (times 2 (integer)))]  
+    (always (apply ->NumberRange vals))))
 
 (defparser area-weather-decl []
-  (let->> [_ (string "Weather")
-           base-precip (integer)
-           base-temp (integer)
-           base-wind-mag (integer)
-           base-wind-dir (integer)
-           geography (integer)]
-    (always (->Weather base-precip
-                       base-temp
-                       base-wind-mag
-                       base-wind-dir
-                       geography))))
+  (let->> [vals (>> (string "Weather") (times 5 (integer)))]
+    (always (apply ->Weather vals))))
 
 (defparser area []
   (let->> [opts (between (string "#AREADATA")           
@@ -103,8 +91,6 @@
                                        (named :info-flags (>> (string "Areainfo") (integer)))
                                        (named :herbs      (>> (string "Herbs")    (integer)))
 
-                                       (area-weather-decl)
-                                       (area-vnum-decl))))]
+                                       (named :weather (area-weather-decl))                                       
+                                       (named :vnums (area-vnum-decl)))))]
     (always (map->Area (apply list-merge opts)))))
-
-              
