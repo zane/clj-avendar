@@ -123,3 +123,16 @@ End")]
        62 "10|21|31"
        10 "A0"
        671088640 "a0"))
+
+(deftest test-alignment
+  (are [expected input] (= expected (run (alignment) input))
+       :good    "1"
+       :neutral "0"
+       :evil    "-1"))
+
+(deftest test-number
+  (are [expected input] (= expected (run (number) input))
+       1  "1"
+       0  "0"
+       -1 "-1"))
+

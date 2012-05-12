@@ -70,6 +70,11 @@
            digits (many1 (digit))]
     (always (read-string (apply str digits)))))
 
+(defparser number []
+  (choice (integer)
+          (let->> [negint (>> (char \-) (integer))]
+            (always (- negint)))))
+
 (defparser nonzero-integer []
   (let->> [nonzero-digit (nonzero-digit)
            digits (many (digit))]
@@ -108,27 +113,6 @@
                           (named :vnums (area-vnum-decl)))))]
     (always (map->Area (apply list-merge opts)))))
 
-(defrecord Mobile
-    [version
-     vnum
-     player-name
-     short-desc
-     long-desc
-     description
-     race])
-
-(defparser mobile []
-  (let->> [opts
-           (ordered (>> (char \V) (integer))
-                    (integer)
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string))]
-    (always (apply ->Mobile opts))))
-
 (defparser maybe [alternative parser]
   (choice parser
           (always alternative)))
@@ -154,3 +138,47 @@
                             digits)) 
                rest))))
 
+(defparser alignment []
+  (choice (let->> [num (number)]
+            (cond (> num 0) (always :good)
+                  (< num 0) (always :evil)
+                  :else     (always :neutral)))
+          (>> (char \G) (always :good))
+          (>> (char \N) (always :neutral))
+          (>> (char \E) (always :evil))
+          (>> (char \R) (always :random))))
+
+(defrecord Mobile
+    [version
+     vnum
+     player-name
+     short-desc
+     long-desc
+     description
+     race
+     act
+     nact
+     affected-by
+     alignment
+     group
+     level
+     hitroll])
+
+(defparser mobile []
+  (let->> [opts
+           (ordered (>> (char \V) (integer))
+                    (integer)
+                    (tilde-string)
+                    (tilde-string)
+                    (tilde-string)
+                    (tilde-string)
+                    (tilde-string)
+                    (tilde-string)
+                    (flag)
+                    (flag)
+                    (flag)
+                    (alignment)
+                    (integer)
+                    (integer)
+                    (integer))]
+    (always (apply ->Mobile opts))))
