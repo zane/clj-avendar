@@ -36,22 +36,22 @@
        "foo"))
 
 (deftest test-area-name-decl
-  (are [x y] (= (:names (run (area-name-decl) x))
+  (are [x y] (= (:name (run (area-name-decl) x))
                 y)
        "Name Var Bandor~"
-       ["Var Bandor"]))
+       "Var Bandor"))
 
 (deftest test-area-builders-decl
   (are [x y] (= (:builders (run (area-builders-decl) x))
                 y)
        "Builders Jolinn        Iandir      Neongrey~"
-       ["Jolinn        Iandir      Neongrey"]))
+       "Jolinn        Iandir      Neongrey"))
 
 (deftest test-vnum-decl
   (are [x y] (= (run (area-vnum-decl) x)
                 y)
-       "VNUMs 1 10" {:vnums [(->NumberRange 1 10)]}
-       "\nVNUMs   1    10" {:vnums [(->NumberRange 1 10)]}))
+       "VNUMs 1 10" {:vnums (->NumberRange 1 10)}
+       "\nVNUMs   1    10" {:vnums (->NumberRange 1 10)}))
 
 
 (deftest test-area
@@ -64,6 +64,9 @@ VNUMs 22900 22999
 VNUMs 22850 22899
 VNUMs 3400 3699
 Danger 1
+Security 1
+Areainfo 59
+Herbs 0
 End")]
       (is (= (:name area) "Var Bandor"))
       (is (= (:builders area) "Jolinn        Iandir      Neongrey"))
@@ -72,7 +75,26 @@ End")]
                             #clj_avendar.core.NumberRange{:start 22900, :end 22999}
                             #clj_avendar.core.NumberRange{:start 22850, :end 22899}
                             #clj_avendar.core.NumberRange{:start 3400, :end 3699}]))
-      (is (= (:danger area) 1))))
+      (is (= (:danger area) 1))
+      (is (= (:security area) 1))
+      (is (= (:info-flags area) 59))
+      (is (= (:herbs area) 0))))
 
+(deftest test-list-merge
+  (is (= (list-merge {:a 1 :b 2}
+                     {:a 3})
+         {:a [1 3] :b 2})))
 
+(deftest test-named
+  (is (= (run (named :int (integer))
+              "1234")
+         {:int 1234})))
 
+(deftest test-weather-decl
+  (is (= (run (area-weather-decl)
+              "Weather 2 2 2 1 0")
+         #clj_avendar.core.Weather{:base-precip 2,
+                                   :base-temp 2,
+                                   :base-wind-mag 2,
+                                   :base-wind-dir 1,
+                                   :geography 0})))

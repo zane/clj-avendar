@@ -2,8 +2,41 @@
   (:refer-clojure :exclude [char])
   (:use [the.parsatron]))
 
-(defrecord Area [name builders credits vnums danger])
-(defrecord NumberRange [start end])
+(defrecord Area
+    [name
+     builders
+     credits
+     vnums
+     danger
+     security
+     info-flags
+     herbs
+     weather])
+
+(defrecord NumberRange
+    [start
+     end])
+
+(defrecord Weather
+    [base-precip
+     base-temp
+     base-wind-mag
+     base-wind-dir
+     geography])
+
+
+(defn list-merge
+  [& lst]
+  (apply (partial merge-with (fn [x y]
+                               (if (vector? x)
+                                 (conj x y)
+                                 [x y])))
+         lst))
+
+(defparser named
+  [tag parser]
+  (let->> [x parser]
+    (always {tag x})))
 
 (defn string
   [string]
@@ -37,45 +70,41 @@
            _ (char \~)]
     (always (apply str chars))))
 
-(defparser area-name-decl []
-  (let->> [name (>> (string "Name")
-                    (tilde-string))]
-    (always {:names [name]})))
-
-(defparser area-builders-decl []
-  (let->> [builders (>> (string "Builders")
-                        (tilde-string))]
-    (always {:builders [builders]})))
-
-(defparser area-credits-decl []
-  (let->> [credits (>> (string "Credits")
-                       (tilde-string))]
-    (always {:credits [credits]})))
-
 (defparser area-vnum-decl []
   (let->> [_ (many (whitespace))
            _ (string "VNUMs")
            start (integer)
            end (integer)]
-    (always {:vnums [(NumberRange. start end)]})))
+    (always {:vnums (NumberRange. start end)})))
+
+(defparser area-weather-decl []
+  (let->> [_ (string "Weather")
+           base-precip (integer)
+           base-temp (integer)
+           base-wind-mag (integer)
+           base-wind-dir (integer)
+           geography (integer)]
+    (always (->Weather base-precip
+                       base-temp
+                       base-wind-mag
+                       base-wind-dir
+                       geography))))
 
 (defparser area []
   (let->> [opts (between (string "#AREADATA")           
                          (string "End")
-                         (many (choice (let->> [_ (many1 (whitespace))]
-                                         (always {})) 
-                                       (area-name-decl)
-                                       (area-builders-decl)
-                                       (area-credits-decl)
-                                       (area-vnum-decl)
-                                       (let->> [_ (string "Danger")
-                                                danger (integer)]
-                                         (always {:danger [danger]})))))]
-    (always (let [merged (apply (partial merge-with into) opts)]
-              (->Area (first (:names merged))
-                      (first (:builders merged))
-                      (first (:credits merged))
-                      (:vnums merged)
-                      (first (:danger merged)))))))
+                         (many (choice (>> (many1 (whitespace)) (always {}))
+                                       
+                                       (named :name       (>> (string "Name")     (tilde-string)))
+                                       (named :builders   (>> (string "Builders") (tilde-string)))
+                                       (named :credits    (>> (string "Credits")  (tilde-string)))
+                                       (named :danger     (>> (string "Danger")   (integer)))
+                                       (named :security   (>> (string "Security") (integer)))
+                                       (named :info-flags (>> (string "Areainfo") (integer)))
+                                       (named :herbs      (>> (string "Herbs")    (integer)))
+
+                                       (area-weather-decl)
+                                       (area-vnum-decl))))]
+    (always (map->Area (apply list-merge opts)))))
 
               
