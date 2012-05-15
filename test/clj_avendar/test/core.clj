@@ -156,4 +156,104 @@ End")]
        "jolinn" "jolinn"
        "Jolinn" "Jolinn"
        "JOLINN" "JOLINN"
-       "JOLINN" "   JOLINN"))
+       "JOLINN" "   JOLINN"
+       "rand_prog" "rand_prog"))
+
+(deftest test-mobprog
+  (let [long-prog ">rand_prog 50~
+if mobvalue(2)==0
+  if iscarrying($i)==986
+  or iscarrying($i)==3516
+  or iscarrying($i)==3517
+  or iscarrying($i)==6929
+  or iscarrying($i)==6930
+  or iscarrying($i)==7437
+  or iscarrying($i)==8106
+  or iscarrying($i)==8803
+  or iscarrying($i)==15050
+  or iscarrying($i)==19044
+  or iscarrying($i)==19090
+  or iscarrying($i)==19102
+  or iscarrying($i)==21423
+  or iscarrying($i)==22831
+  or iscarrying($i)==23805
+  or iscarrying($i)==24048
+  or iscarrying($i)==25254
+    eat bread
+    break
+  endif
+  if isanyobjhere()
+    if objhere(986)
+    or objhere(3516)
+    or objhere(3517)
+    or objhere(6929)
+    or objhere(6930)
+    or objhere(7437)
+    or objhere(8106)
+    or objhere(8803)
+    or objhere(15050)
+    or objhere(19044)
+    or objhere(19090)
+    or objhere(19102)
+    or objhere(21423)
+    or objhere(22831)
+    or objhere(23805)
+    or objhere(24048)
+    or objhere(25254)
+      mpecho $I darts over to the bread on the ground and quickly eats it up.
+      mppurge bread
+      break
+    endif
+  endif
+else
+endif
+mpvaluerand 1 1 100
+if mobvalue(1)==1
+  mpvaluerand 1 1 3
+  if mobvalue(1) == 1
+    if mobvalue(2) == 0
+      mpfocus $r
+      if iscarrying($f)==986
+      or iscarrying($f)==3516
+      or iscarrying($f)==3517
+      or iscarrying($f)==6929
+      or iscarrying($f)==6930
+      or iscarrying($f)==7437
+      or iscarrying($f)==8106
+      or iscarrying($f)==8803
+      or iscarrying($f)==15050
+      or iscarrying($f)==19044
+      or iscarrying($f)==19090
+      or iscarrying($f)==19102
+      or iscarrying($f)==21423
+      or iscarrying($f)==22831
+      or iscarrying($f)==23805
+      or iscarrying($f)==24048
+      or iscarrying($f)==25254
+        mpechoat $f $I approaches you tentatively, eyeing your bread.
+        mpechoaround $f $I approaches $F tentatively, begging for bread.
+        mpunfocus
+      endif
+    endif
+  endif
+  if mobvalue(1) == 2
+    if mobvalue(2) == 0
+      mpecho $I coos softly.
+    endif
+  endif
+  if mobvalue(1) == 3
+    if mobvalue(2) == 0
+      mpecho $I is startled, and flies up over the city.
+      mpwizi
+      mpvalueset 2 1
+    else
+      mpunwizi
+      mpecho $I lands and begins walking about, looking for food.
+      mpvalueset 2 0
+    endif
+  endif
+endif
+~"]
+    (is (= (:type (run (mobprog) ">rand_prog 50~lines~")) "rand_prog"))
+    (is (= (:type (run (mobprog) long-prog) "rand_prog")))
+    ))

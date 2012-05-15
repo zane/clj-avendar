@@ -4,27 +4,11 @@
   (:use [the.parsatron])
   (:use [clojure.math.numeric-tower :only (expt)]))
 
-(defrecord Area
-    [name
-     builders
-     credits
-     vnums
-     danger
-     security
-     info-flags
-     herbs
-     weather])
 
-(defrecord NumberRange
-    [start
-     end])
 
-(defrecord Weather
-    [base-precip
-     base-temp
-     base-wind-mag
-     base-wind-dir
-     geography])
+
+
+
 
 (defn list-merge
   [& lst]
@@ -36,7 +20,7 @@
          lst))
 
 (defparser named
-  [tag parser]
+    [tag parser]
   (let->> [x parser]
     (always {tag x})))
 
@@ -61,8 +45,11 @@
 (defparser nonzero-digit []
   (token #(re-matches #"[1-9]" (str %))))
 
-(defparser not-tilde []
-  (token #(not (= \~ %))))
+(defparser not-char [chr]
+  (token #(not (= chr %))))
+
+(defn not-chars [& chrs]
+  (token #(nil? ((apply hash-set chrs) %))))
 
 (defparser integer []
   (let->> [_ (many (whitespace))
@@ -81,22 +68,44 @@
 
 (defparser word []
   (let->> [chars (>> (many (whitespace))
-                     (many1 (letter)))]
+                     (many1 (not-char \ )))]
     (always (apply str chars))))
 
 (defparser tilde-string []
   (let->> [chars (>> (many (whitespace))
-                     (many1 (not-tilde)))
+                     (many1 (not-char \~)))
            _ (char \~)]
     (always (apply str chars))))
+
+(defrecord NumberRange
+    [start
+     end])
 
 (defparser area-vnum-decl []
   (let->> [vals (>> (string "VNUMs") (times 2 (integer)))]
     (always (apply ->NumberRange vals))))
 
+(defrecord Weather
+    [base-precip
+     base-temp
+     base-wind-mag
+     base-wind-dir
+     geography])
+
 (defparser area-weather-decl []
   (let->> [vals (>> (string "Weather") (times 5 (integer)))]
     (always (apply ->Weather vals))))
+
+(defrecord Area
+    [name
+     builders
+     credits
+     vnums
+     danger
+     security
+     info-flags
+     herbs
+     weather])
 
 (defparser area []
   (let->> [opts
@@ -129,28 +138,30 @@
     (expt 2 (+ 26 (- (int chr) (int \a))))))
 
 (defparser flag []
-  (let->> [letters (many (letter))
-           digits  (many (digit))
-           rest    (maybe 0 (>> (char \|)
-                                (flag)))]
-    (always (+ (reduce (fn [acc digit]
-                         (+ (* 10 acc)
-                            digit))
-                       (reduce + (map flag-convert letters))
-                       (map (fn [digit]
-                              (Integer/parseInt (str digit)))
-                            digits)) 
-               rest))))
+  (>> (many (whitespace))
+      (let->> [letters (many (letter))
+               digits  (many (digit))
+               rest    (maybe 0 (>> (char \|)
+                                    (flag)))]
+        (always (+ (reduce (fn [acc digit]
+                             (+ (* 10 acc)
+                                digit))
+                           (reduce + (map flag-convert letters))
+                           (map (fn [digit]
+                                  (Integer/parseInt (str digit)))
+                                digits))
+                   rest)))))
 
 (defparser alignment []
-  (choice (let->> [num (number)]
-            (cond (> num 0) (always :good)
-                  (< num 0) (always :evil)
-                  :else     (always :neutral)))
-          (>> (char \G) (always :good))
-          (>> (char \N) (always :neutral))
-          (>> (char \E) (always :evil))
-          (>> (char \R) (always :random))))
+  (>> (many (whitespace))
+      (choice (let->> [num (number)]
+                (cond (> num 0) (always :good)
+                      (< num 0) (always :evil)
+                      :else     (always :neutral)))
+              (>> (char \G) (always :good))
+              (>> (char \N) (always :neutral))
+              (>> (char \E) (always :evil))
+              (>> (char \R) (always :random)))))
 
 (defrecord Dice
     [number
@@ -176,6 +187,19 @@
     (always (apply ->ArmorClass (map #(* 10 %)
                                      vals)))))
 
+(defrecord MobProg
+    [type
+     args
+     coms])
+
+(defparser mobprog []
+  (let->> [_ (many (whitespace))
+           _ (char \>)
+           type (word)
+           args (tilde-string)
+           coms (tilde-string)]
+    (always (->MobProg type args coms))))
+
 (defrecord Mobile
     [version
      vnum
@@ -184,6 +208,7 @@
      long-desc
      description
      race
+     class
      act
      nact
      affected-by
@@ -213,42 +238,48 @@
      material])
 
 (defparser mobile []
-  (let->> [opts
-           (ordered (>> (char \V) (integer))
-                    (integer)
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string)
-                    (flag)
-                    (flag)
-                    (flag)
-                    (alignment)
-                    (integer)
-                    (integer)
-                    (integer)
-                    (dice)
-                    (dice)
-                    (dice)
-                    (tilde-string)
-                    (tilde-string)
-                    (armor-class)
-                    (flag)
-                    (flag)
-                    (let->> [count (integer)]
-                      (times count (integer)))
-                    (let->> [count (integer)]
-                      (times count (integer)))
-                    (tilde-string)
-                    (tilde-string)
-                    (tilde-string)
-                    (integer)
-                    (integer)
-                    (flag)
-                    (flag)
-                    (flag)
-                    (word)
-                    (word))]
-    (always (apply ->Mobile opts))))
+  (let->> [opts (ordered (>> (char \V)
+                             (named :version (integer)))
+                         (named :vnum (integer))
+                         (named :player-name (tilde-string))
+                         (named :short-desc (tilde-string))
+                         (named :long-desc (tilde-string))
+                         (named :description (tilde-string))
+                         (named :race (tilde-string))
+                         (named :class (tilde-string))
+                         (named :act (flag))
+                         (named :nact (flag))
+                         (named :affected-by (flag))
+                         (named :alignment (alignment))
+                         (named :group (integer))
+                         (named :level (integer))
+                         (named :hitroll (integer))
+                         (named :hit (dice))
+                         (named :mana (dice))
+                         (named :damage (dice))
+                         (named :dam-type (tilde-string))
+                         (named :dam-verb (tilde-string))
+                         (named :armor-class (armor-class))
+                         (named :off-flags (flag))
+                         (named :imm-flags (flag))
+                         (named :resists
+                                (let->> [count (integer)]
+                                  (times count (integer))))
+                         (named :assist-vnums
+                                (let->> [count (integer)]
+                                  (times count (integer))))
+                         (named :start-pos (tilde-string))
+                         (named :default-pos (tilde-string))
+                         (named :sex (tilde-string))
+                         (named :wealth (integer))
+                         (named :faction (integer))
+                         (named :form (flag))
+                         (named :parts (flag))
+                         (named :languages (flag))
+                         (named :size (word))
+                         (named :material (word))
+                         ;; (named :mobprogs (many (>> (many (whitespace))
+                         ;;                            (mobprog))))
+                         ;; (>> (char \|) (always {}))
+                         )]
+    (always (map->Mobile (reduce merge opts)))))
