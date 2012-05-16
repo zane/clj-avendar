@@ -4,12 +4,6 @@
   (:use [the.parsatron])
   (:use [clojure.math.numeric-tower :only (expt)]))
 
-
-
-
-
-
-
 (defn list-merge
   [& lst]
   (apply (partial merge-with
@@ -51,10 +45,19 @@
 (defn not-chars [& chrs]
   (token #(nil? ((apply hash-set chrs) %))))
 
-(defparser integer []
-  (let->> [_ (many (whitespace))
-           digits (many1 (digit))]
+(defparser pos-integer []
+  (let->> [digits (many1 (digit))]
     (always (read-string (apply str digits)))))
+
+(defparser neg-integer []
+  (let->> [_ (char \-)
+           int (pos-integer)]
+    (always (- int))))
+
+(defparser integer []
+  (>> (many (whitespace))
+      (either (neg-integer)
+              (pos-integer))))
 
 (defparser number []
   (choice (integer)
@@ -68,12 +71,13 @@
 
 (defparser word []
   (let->> [chars (>> (many (whitespace))
-                     (many1 (not-char \ )))]
+                     (many1 (choice (letter)
+                                    (char \_))))]
     (always (apply str chars))))
 
 (defparser tilde-string []
   (let->> [chars (>> (many (whitespace))
-                     (many1 (not-char \~)))
+                     (many (not-char \~)))
            _ (char \~)]
     (always (apply str chars))))
 
@@ -107,7 +111,7 @@
      herbs
      weather])
 
-(defparser area []
+(defparser area-block []
   (let->> [opts
            (between
             (string "#AREADATA")
@@ -197,7 +201,8 @@
            _ (char \>)
            type (word)
            args (tilde-string)
-           coms (tilde-string)]
+           coms (tilde-string)
+           _ (many (whitespace))]
     (always (->MobProg type args coms))))
 
 (defrecord Mobile
@@ -238,7 +243,8 @@
      material])
 
 (defparser mobile []
-  (let->> [opts (ordered (>> (char \V)
+  (let->> [opts (ordered (>> (many (whitespace))
+                             (char \V)
                              (named :version (integer)))
                          (named :vnum (integer))
                          (named :player-name (tilde-string))
@@ -268,9 +274,9 @@
                          (named :assist-vnums
                                 (let->> [count (integer)]
                                   (times count (integer))))
-                         (named :start-pos (tilde-string))
-                         (named :default-pos (tilde-string))
-                         (named :sex (tilde-string))
+                         (named :start-pos (word))
+                         (named :default-pos (word))
+                         (named :sex (word))
                          (named :wealth (integer))
                          (named :faction (integer))
                          (named :form (flag))
@@ -278,8 +284,26 @@
                          (named :languages (flag))
                          (named :size (word))
                          (named :material (word))
-                         ;; (named :mobprogs (many (>> (many (whitespace))
-                         ;;                            (mobprog))))
-                         ;; (>> (char \|) (always {}))
-                         )]
+                         (maybe {} (>> (many (whitespace)) (always {})))
+                         (named :mobprogs (maybe [] (let->> [progs (many (mobprog))
+                                                             _ (>> (many (whitespace))
+                                                                   (char \|))]
+                                                      (always progs))))
+                         (maybe {} (>> (many (whitespace)) (always {}))))]
     (always (map->Mobile (reduce merge opts)))))
+
+(defparser mobiles-block []
+  (let->> [_ (>> (string "#MOBILES")
+                 (many (whitespace)))
+           mobiles (many (mobile))
+           _ (>> (many (whitespace))
+                 (string "#0"))]
+    (always mobiles)))
+
+(defparser area []
+  (let->> [area (>> (many (whitespace))
+                    (area-block))
+           mobiles (>> (many (whitespace))
+                       (mobiles-block))]
+    (always {:area area
+             :mobiles mobiles})))

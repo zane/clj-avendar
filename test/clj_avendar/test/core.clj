@@ -15,7 +15,8 @@
 (deftest test-integer
   (are [x y] (= (run (integer) y) x)
        123 "123"
-       0 "0"))
+       0 "0"
+       -123 "-123"))
 
 (deftest test-integer
   (are [x y] (= (run (nonzero-integer) y) x)
@@ -28,7 +29,8 @@
   (are [x y] (= (run (tilde-string) y) x)
        "hello" "   hello~"
        "hello" "\thello~"
-       "hello" "\nhello~"))
+       "hello" "\nhello~"
+       "" "~"))
 
 (deftest test-string
   (are [x] (run (string x) x)
@@ -42,8 +44,8 @@
        "VNUMs   1    10" (->NumberRange 1 10)))
 
 
-(deftest test-area
-  (let [area (run (area) "#AREADATA
+(deftest test-area-block
+  (let [area (run (area-block) "#AREADATA
 Name Var Bandor~
 Builders Jolinn        Iandir      Neongrey~
 Credits [ ALL ] Staff     Var Bandor~
@@ -255,5 +257,4 @@ if mobvalue(1)==1
 endif
 ~"]
     (is (= (:type (run (mobprog) ">rand_prog 50~lines~")) "rand_prog"))
-    (is (= (:type (run (mobprog) long-prog) "rand_prog")))
-    ))
+    (is (= (:type (run (mobprog) long-prog) "rand_prog")))))
