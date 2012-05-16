@@ -13,6 +13,67 @@
                       [x y])))
          lst))
 
+(defmacro ws->>
+  "Expands into nested nxt forms that ignore interposed whitespace."
+  ([m] m)
+  ([m n] `(nxt ~m
+               (nxt (many (whitespace))
+                    ~n)))
+  ([m n & ms] `(nxt ~m
+                    (nxt (many (whitespace))
+                         (ws->> ~n ~@ms)))))
+
+(defmacro ws-let->>
+  "Expands into nested bind forms"
+  [[& bindings] & body]
+  (let [[bind-form p] (take 2 bindings)]
+    (if (= 2 (count bindings))
+      `(bind ~p (fn [~bind-form] ~@body))
+      `(bind ~p (fn [~bind-form] (nxt (many (whitespace))
+                                     (ws-let->> ~(drop 2 bindings) ~@body)))))))
+
+(defn ws-times
+  "Consume exactly n number of p ignoring interposed whitespace."
+  [n p]
+  (let [p (if (= n 1)
+            p
+            (nxt (many (whitespace))
+                 p))]
+    (if (= n 0)
+      (always [])
+      (fn [state cok cerr eok eerr]
+        (letfn [(pcok [item state]
+                  (let [q (times (dec n) p)]
+                    (letfn [(qcok [items state]
+                              (cok (cons item items) state))]
+                      (q state qcok cerr qcok eerr))))
+                (peok [item state]
+                  (eok (repeat n item) state))]
+          (p state pcok cerr peok eerr))))))
+
+(defn ws-many
+  "Consume zero or more p with interposed whitespace."
+  [p]
+  (letfn [(many-err [_ _]
+            (throw (RuntimeException. "Combinator '*' is applied to a parser that accepts an empty string")))
+          (safe-p [state cok cerr eok eerr]
+            (p state cok cerr many-err eerr))]
+    (either
+     (ws-let->> [x safe-p
+                 xs (ws-many safe-p)]
+       (always (cons x xs)))
+     (always []))))
+
+(defn ws-between
+  "Parse p after parsing open and before parsing close, returning the
+   value of p and discarding the values of open and close. Ignores
+   interposed whitespace."
+  [open close p]
+  (ws-let->> [_ open
+              x p
+              _ close]
+    (always x)))
+
 (defparser named
     [tag parser]
   (let->> [x parser]
@@ -25,8 +86,8 @@
 (defn ordered
   [& parsers]
   (reduce (fn [xs-parser x-parser]
-            (let->> [xs xs-parser
-                     x x-parser]
+            (ws-let->> [xs xs-parser
+                        x x-parser]
               (always (conj xs x))))
           (always [])
           parsers))
@@ -55,14 +116,8 @@
     (always (- int))))
 
 (defparser integer []
-  (>> (many (whitespace))
-      (either (neg-integer)
-              (pos-integer))))
-
-(defparser number []
-  (choice (integer)
-          (let->> [negint (>> (char \-) (integer))]
-            (always (- negint)))))
+  (either (neg-integer)
+          (pos-integer)))
 
 (defparser nonzero-integer []
   (let->> [nonzero-digit (nonzero-digit)
@@ -70,14 +125,12 @@
     (always (read-string (apply str (cons nonzero-digit digits))))))
 
 (defparser word []
-  (let->> [chars (>> (many (whitespace))
-                     (many1 (choice (letter)
-                                    (char \_))))]
+  (let->> [chars (many1 (choice (letter)
+                                (char \_)))]
     (always (apply str chars))))
 
 (defparser tilde-string []
-  (let->> [chars (>> (many (whitespace))
-                     (many (not-char \~)))
+  (let->> [chars (many (not-char \~))
            _ (char \~)]
     (always (apply str chars))))
 
@@ -86,7 +139,7 @@
      end])
 
 (defparser area-vnum-decl []
-  (let->> [vals (>> (string "VNUMs") (times 2 (integer)))]
+  (let->> [vals (ws->> (string "VNUMs") (ws-times 2 (integer)))]
     (always (apply ->NumberRange vals))))
 
 (defrecord Weather
@@ -97,7 +150,7 @@
      geography])
 
 (defparser area-weather-decl []
-  (let->> [vals (>> (string "Weather") (times 5 (integer)))]
+  (let->> [vals (ws->> (string "Weather") (ws-times 5 (integer)))]
     (always (apply ->Weather vals))))
 
 (defrecord Area
@@ -112,23 +165,20 @@
      weather])
 
 (defparser area-block []
-  (let->> [opts
-           (between
-            (string "#AREADATA")
-            (string "End")
-            (many (choice (>> (many1 (whitespace)) (always {}))
-
-                          (named :name       (>> (string "Name")     (tilde-string)))
-                          (named :builders   (>> (string "Builders") (tilde-string)))
-                          (named :credits    (>> (string "Credits")  (tilde-string)))
-                          (named :danger     (>> (string "Danger")   (integer)))
-                          (named :security   (>> (string "Security") (integer)))
-                          (named :info-flags (>> (string "Areainfo") (integer)))
-                          (named :herbs      (>> (string "Herbs")    (integer)))
+  (bind (ws-between
+         (string "#AREADATA")
+         (string "End")
+         (ws-many (choice (named :name       (ws->> (string "Name")     (tilde-string)))
+                          (named :builders   (ws->> (string "Builders") (tilde-string)))
+                          (named :credits    (ws->> (string "Credits")  (tilde-string)))
+                          (named :danger     (ws->> (string "Danger")   (integer)))
+                          (named :security   (ws->> (string "Security") (integer)))
+                          (named :info-flags (ws->> (string "Areainfo") (integer)))
+                          (named :herbs      (ws->> (string "Herbs")    (integer)))
 
                           (named :weather (area-weather-decl))
-                          (named :vnums (area-vnum-decl)))))]
-    (always (map->Area (apply list-merge opts)))))
+                          (named :vnums (area-vnum-decl)))))
+        #(always (map->Area (apply list-merge %)))))
 
 (defparser maybe [alternative parser]
   (choice parser
@@ -142,30 +192,28 @@
     (expt 2 (+ 26 (- (int chr) (int \a))))))
 
 (defparser flag []
-  (>> (many (whitespace))
-      (let->> [letters (many (letter))
-               digits  (many (digit))
-               rest    (maybe 0 (>> (char \|)
-                                    (flag)))]
-        (always (+ (reduce (fn [acc digit]
-                             (+ (* 10 acc)
-                                digit))
-                           (reduce + (map flag-convert letters))
-                           (map (fn [digit]
-                                  (Integer/parseInt (str digit)))
-                                digits))
-                   rest)))))
+  (let->> [letters (many (letter))
+           digits  (many (digit))
+           rest    (maybe 0 (>> (char \|)
+                                (flag)))]
+    (always (+ (reduce (fn [acc digit]
+                         (+ (* 10 acc)
+                            digit))
+                       (reduce + (map flag-convert letters))
+                       (map (fn [digit]
+                              (Integer/parseInt (str digit)))
+                            digits))
+               rest))))
 
 (defparser alignment []
-  (>> (many (whitespace))
-      (choice (let->> [num (number)]
-                (cond (> num 0) (always :good)
-                      (< num 0) (always :evil)
-                      :else     (always :neutral)))
-              (>> (char \G) (always :good))
-              (>> (char \N) (always :neutral))
-              (>> (char \E) (always :evil))
-              (>> (char \R) (always :random)))))
+  (choice (let->> [num (integer)]
+            (cond (> num 0) (always :good)
+                  (< num 0) (always :evil)
+                  :else     (always :neutral)))
+          (>> (char \G) (always :good))
+          (>> (char \N) (always :neutral))
+          (>> (char \E) (always :evil))
+          (>> (char \R) (always :random))))
 
 (defrecord Dice
     [number
@@ -187,9 +235,15 @@
      exotic])
 
 (defparser armor-class []
-  (let->> [vals (times 4 (integer))]
+  (ws-let->> [pierce (integer)
+              slash  (integer)
+              bash   (integer)
+              exotic (integer)]
     (always (apply ->ArmorClass (map #(* 10 %)
-                                     vals)))))
+                                     (list pierce
+                                           slash
+                                           bash
+                                           exotic))))))
 
 (defrecord MobProg
     [type
@@ -197,12 +251,10 @@
      coms])
 
 (defparser mobprog []
-  (let->> [_ (many (whitespace))
-           _ (char \>)
+  (ws-let->> [_ (char \>)
            type (word)
            args (tilde-string)
-           coms (tilde-string)
-           _ (many (whitespace))]
+           coms (tilde-string)]
     (always (->MobProg type args coms))))
 
 (defrecord Mobile
@@ -242,68 +294,66 @@
      size
      material])
 
+(defparser position []
+  (let->> [pos (choice (string "stand")
+                       (string "sit")
+                       (string "rest"))]
+    (always (keyword pos))))
+
 (defparser mobile []
-  (let->> [opts (ordered (>> (many (whitespace))
-                             (char \V)
-                             (named :version (integer)))
-                         (named :vnum (integer))
-                         (named :player-name (tilde-string))
-                         (named :short-desc (tilde-string))
-                         (named :long-desc (tilde-string))
-                         (named :description (tilde-string))
-                         (named :race (tilde-string))
-                         (named :class (tilde-string))
-                         (named :act (flag))
-                         (named :nact (flag))
-                         (named :affected-by (flag))
-                         (named :alignment (alignment))
-                         (named :group (integer))
-                         (named :level (integer))
-                         (named :hitroll (integer))
-                         (named :hit (dice))
-                         (named :mana (dice))
-                         (named :damage (dice))
-                         (named :dam-type (tilde-string))
-                         (named :dam-verb (tilde-string))
-                         (named :armor-class (armor-class))
-                         (named :off-flags (flag))
-                         (named :imm-flags (flag))
-                         (named :resists
-                                (let->> [count (integer)]
-                                  (times count (integer))))
-                         (named :assist-vnums
-                                (let->> [count (integer)]
-                                  (times count (integer))))
-                         (named :start-pos (word))
-                         (named :default-pos (word))
-                         (named :sex (word))
-                         (named :wealth (integer))
-                         (named :faction (integer))
-                         (named :form (flag))
-                         (named :parts (flag))
-                         (named :languages (flag))
-                         (named :size (word))
-                         (named :material (word))
-                         (maybe {} (>> (many (whitespace)) (always {})))
-                         (named :mobprogs (maybe [] (let->> [progs (many (mobprog))
-                                                             _ (>> (many (whitespace))
-                                                                   (char \|))]
-                                                      (always progs))))
-                         (maybe {} (>> (many (whitespace)) (always {}))))]
-    (always (map->Mobile (reduce merge opts)))))
+  (bind (ordered (>> (char \V)
+                     (named :version (integer)))
+                 (named :vnum (integer))
+                 (named :player-name (tilde-string))
+                 (named :short-desc (tilde-string))
+                 (named :long-desc (tilde-string))
+                 (named :description (tilde-string))
+                 (named :race (tilde-string))
+                 (named :class (tilde-string))
+                 (named :act (flag))
+                 (named :nact (flag))
+                 (named :affected-by (flag))
+                 (named :alignment (alignment))
+                 (named :group (integer))
+                 (named :level (integer))
+                 (named :hitroll (integer))
+                 (named :hit (dice))
+                 (named :mana (dice))
+                 (named :damage (dice))
+                 (named :dam-type (tilde-string))
+                 (named :dam-verb (tilde-string))
+                 (named :armor-class (armor-class))
+                 (named :off-flags (flag))
+                 (named :imm-flags (flag))
+                 (named :resists
+                        (ws-let->> [count (integer)]
+                          (ws-times count (integer))))
+                 (named :assist-vnums
+                        (ws-let->> [count (integer)]
+                          (ws-times count (integer))))
+                 (named :start-pos (word))
+                 (named :default-pos (word))
+                 (named :sex (word))
+                 (named :wealth (integer))
+                 (named :faction (integer))
+                 (named :form (flag))
+                 (named :parts (flag))
+                 (named :languages (flag))
+                 (named :size (word))
+                 (named :material (word))
+                 (maybe {} (>> (many (whitespace)) (always {})))
+                 (named :mobprogs (maybe [] (ws-let->> [progs (ws-many (mobprog))
+                                                        _ (char \|)]
+                                              (always progs)))))
+        #(always (map->Mobile (reduce merge %)))))
 
 (defparser mobiles-block []
-  (let->> [_ (>> (string "#MOBILES")
-                 (many (whitespace)))
-           mobiles (many (mobile))
-           _ (>> (many (whitespace))
-                 (string "#0"))]
-    (always mobiles)))
+  (ws-between (string "#MOBILES")
+              (string "#0")
+              (ws-many (mobile))))
 
 (defparser area []
-  (let->> [area (>> (many (whitespace))
-                    (area-block))
-           mobiles (>> (many (whitespace))
-                       (mobiles-block))]
+  (ws-let->> [area (area-block)
+              mobiles (mobiles-block)]
     (always {:area area
              :mobiles mobiles})))

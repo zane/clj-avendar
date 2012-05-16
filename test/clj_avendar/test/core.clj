@@ -27,9 +27,10 @@
 
 (deftest test-tilde-string
   (are [x y] (= (run (tilde-string) y) x)
-       "hello" "   hello~"
-       "hello" "\thello~"
-       "hello" "\nhello~"
+       "hello" "hello~"
+       "hello world" "hello world~"
+       "hello world   " "hello world   ~"
+       "   hello world" "   hello world~"
        "" "~"))
 
 (deftest test-string
@@ -132,12 +133,6 @@ End")]
        :neutral "0"
        :evil    "-1"))
 
-(deftest test-number
-  (are [expected input] (= expected (run (number) input))
-       1  "1"
-       0  "0"
-       -1 "-1"))
-
 (deftest test-dice
   (is (= #clj_avendar.core.Dice{:number 1, :type 6, :bonus 0}
          (run (dice) "1d6+0")))
@@ -158,7 +153,7 @@ End")]
        "jolinn" "jolinn"
        "Jolinn" "Jolinn"
        "JOLINN" "JOLINN"
-       "JOLINN" "   JOLINN"
+       "JOLINN" "JOLINN"
        "rand_prog" "rand_prog"))
 
 (deftest test-mobprog
@@ -258,3 +253,43 @@ endif
 ~"]
     (is (= (:type (run (mobprog) ">rand_prog 50~lines~")) "rand_prog"))
     (is (= (:type (run (mobprog) long-prog) "rand_prog")))))
+
+(deftest test-let-ws
+  (are [x y] (= (run (ws-let->> [a (word)
+                                 b (word)
+                                 c (word)]
+                       (always [a b c]))
+                     y)
+                x)
+       ["foo" "bar" "baz"] "foo bar baz"
+       ["foo" "bar" "baz"] "foo\n\t bar\t \nbaz")
+
+  (are [x y] (= (run (ws-let->> [a (integer)
+                                 b (integer)
+                                 c (integer)]
+                       (always [a b c]))
+                     y)
+                x)
+       [1 2 3] "1 2 3"))
+
+(deftest test-ws-threading
+  (are [x y] (= (run (ws->> (word) (word) (word))
+                     y)
+                x)
+       "baz" "foo bar baz"
+       "baz" "foo\n\t bar\t \nbaz"))
+
+(deftest test-ws-times
+  (are [x y] (= (run (ws-times 3 (word))
+                     y)
+                x)
+       (list "foo" "bar" "baz") "foo bar baz"
+       (list "foo" "bar" "baz") "foo\n\t bar\t \nbaz"))
+
+(deftest test-mobprog
+  (is (= #clj_avendar.core.MobProg{:type "rand_prog", :args "100", :coms "$1"}
+         (run (mobprog) ">rand_prog 100~$1~"))))
+
+(deftest test-ws-many
+  (is (= '(1 2 3 4 5)
+         (run (ws-many (integer)) "1 2\t3\n4 5"))))
